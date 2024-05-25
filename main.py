@@ -69,8 +69,10 @@ class AudioPipe:
                                 'yt-dlp', '-P', playlist_path, 
                                 '-x', '--audio-format', 'mp3', 
                                 '--embed-thumbnail', line])
-            except FileNotFoundError as e:
-                print(f"Link file not found exception: {e}")
+            except FileNotFoundError:
+                print(f"Queue file is missing!")
+                with open(load_config('queue'), 'w') as f:
+                    f.write("Maybe don't delete the needed files next time ;)")
 
             end_time = time()
 
