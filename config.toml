@@ -1,1 +1,6 @@
-path = "./downloads"
+path = "./downloads" # path for playlists
+ascii = true # audiopipe's ascii art
+
+# download method
+auto_dl = true
+queue = 'queue.txt'
