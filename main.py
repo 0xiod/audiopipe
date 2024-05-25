@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from colorama import init as colorama_init
 from colorama import Style
 from colorama import Fore
