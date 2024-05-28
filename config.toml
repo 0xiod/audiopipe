@@ -1,6 +1,10 @@
-path = "./downloads" # path for playlists
-ascii = true # audiopipe's ascii art
+# general
+path = "./downloads" # folder where your playlists belong
+ascii = true # well, some people just don't like it :c
 
-# download method
-auto_dl = true
-queue = 'queue.txt'
+# download
+queue = 'queue.txt' # will store your links
+
+# file
+format = 'mp3' # supported formats are: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
+thumbnail = true # thumbnail used by video

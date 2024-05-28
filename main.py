@@ -1,8 +1,8 @@
 from colorama import init as colorama_init
 from colorama import Style
 from colorama import Fore
-from time import sleep, time
-import subprocess as sub
+import asyncio
+import aiohttp
 import toml
 import os
 
@@ -24,109 +24,85 @@ d8P' ?88  d88   88 d8P' ?88    88Pd8P' ?88`?88'  ?88  88P`?88'  ?88d8b_,dP
 class AudioPipe:
     def __init__(self, path) -> None:
         self.path = path
+        self.links = []
 
         if not os.path.exists(self.path):
-            os.mkdir(self.path)
-
-        if load_config('auto_dl'):
-            print('Auto download was choosen (this can be changed in "config.toml" file)')
-        else:
-            print('Manual download was choosen (this can be changed in "config.toml" file)')
+            os.makedirs(self.path)
 
         if load_config('ascii'):
             print(ASCII_ART)
 
-    def main(self, dl, auto_dl) -> None:
-        if load_config('auto_dl'):
-            auto_dl()
-        if not load_config('auto_dl'):
-            dl()
+        try:
+            with open(load_config('queue')) as f:
+                self.links = [line.strip() for line in f.readlines()]
+            
+            print(
+                f"{len(self.links)} item is available in queue." if len(self.links) == 1 
+                else f"{len(self.links)} items are available in queue.")
+        except FileNotFoundError:
+            with open(load_config('queue'), 'w') as f:
+                f.write("Maybe don't delete the essential files next time ;)")
 
-    def auto_download(self) -> None:
-        ran = False
-
-        while True:
-            if not ran:
+    async def download(self):
+        tasks = []
+        async with aiohttp.ClientSession():
+            for link in self.links:
                 playlist = input('Name your playlist: ')
+                playlist_path = os.path.join(self.path, playlist)
 
-            playlist_path = os.path.join(self.path, playlist)
+                os.makedirs(playlist_path, exist_ok=True)
+                tasks.append(self.download_song(link, playlist_path))
+            await asyncio.gather(*tasks)
 
-            if not os.path.exists(playlist_path):
-                os.mkdir(playlist_path)
-                ran = True
+    async def download_song(self, link, playlist) -> None:
+        start_time = asyncio.get_event_loop().time()
 
-            start_time = time()
+        os.system('cls||clear')
 
-            try:
-                with open(load_config('queue')) as f:
-                    for line in f.readlines():
-                        link = line.strip()
-                        
-                        os.system('cls' if os.name == 'nt' else 'clear')
+        command = [
+            'yt-dlp', '-P', playlist, 
+            '-x', '--audio-format', load_config('format'), 
+            '--embed-thumbnail' if load_config('thumbnail') 
+            else '--no-embed-thumbnail', link]
+        
+        process = await asyncio.create_subprocess_exec(*command)
+        await process.communicate()
+                
+        end_time = asyncio.get_event_loop().time()
 
-                        if link:
-                            sub.run([
-                                'yt-dlp', '-P', playlist_path, 
-                                '-x', '--audio-format', 'mp3', 
-                                '--embed-thumbnail', line])
-            except FileNotFoundError:
-                print(f"Queue file is missing!")
-                with open(load_config('queue'), 'w') as f:
-                    f.write("Maybe don't delete the needed files next time ;)")
+        os.system('cls||clear')
 
-            end_time = time()
+        print(f'Finished in {(end_time - start_time):.2f}')
 
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print(f'Finished in {(end_time - start_time):.2f}')
-            break
-
-    def download(self) -> None:
-        ran = False
-
-        while True:
-            if not ran:
-                playlist = input('Name your playlist: ')
-
-            playlist_path = os.path.join(self.path, playlist)
-
-            if not os.path.exists(playlist_path):
-                os.mkdir(playlist_path)
-                print("Created a playlist folder.")
-                ran = True
-
-            os.system('cls' if os.name == 'nt' else 'clear')
-
-            link = input('Enter your youtube link ("q" to quit): ')
-
-            if link.lower() == 'q':
-                break
-            else:
-                sub.run([
-                    'yt-dlp', '-P', playlist_path, 
-                    '-x', '--audio-format', 'mp3', 
-                    '--embed-thumbnail', link])
-
-                sleep(1)
-                os.system('cls' if os.name == 'nt' else 'clear')
-
-def load_config(*args):
+def load_config(key):
     default_config = {
         'path': './downloads',
-        'ascii': True,
-        'auto_dl': True,
-        'queue': 'queue.txt'}
+        'ascii': False,
+        'queue': 'queue.txt',
+        'format': 'mp3',
+        'thumbnail': True
+    }
     config = {}
 
-    if not os.path.exists('config.toml'):
+    if os.path.exists('config.toml'):
+        try:
+            with open('config.toml', 'r') as f:
+                config = toml.load(f)
+        except Exception as e:
+            print(f"Error reading config.toml: {e}")
+            print("Loading default settings.")
+            config = default_config
+    else:
+        print("config.toml not found, creating a new one with default config.")
         with open('config.toml', 'w') as f:
             toml.dump(default_config, f)
         config = default_config
-    else:
-        with open('config.toml', 'r') as f:
-            config = toml.load(f)
     
-    return config.get(*args, default_config.get(*args))
+    return config.get(key, default_config.get(key))
+
+async def main():
+    main = AudioPipe(load_config('path'))
+    await main.download()
 
 if __name__ == "__main__":
-    ap = AudioPipe(load_config('path'))
-    ap.main(dl=ap.download, auto_dl=ap.auto_download)
+    asyncio.run(main())
