@@ -1,6 +1,7 @@
 from colorama import init as colorama_init
 from colorama import Style
 from colorama import Fore
+import yt_dlp
 import asyncio
 import aiohttp
 import toml
@@ -43,24 +44,31 @@ class AudioPipe:
             with open(load_config('queue'), 'w') as f:
                 f.write("Maybe don't delete the essential files next time ;)")
 
-    async def download(self):
+    def get_playlist_name(self, link):
+        ydl_opts = {
+            'quiet': True,
+            'extract_flat': True
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=False)
+            playlist_title = info_dict.get('title', 'Unknown Playlist')
+            return playlist_title
+
+    async def download(self) -> None:
         tasks = []
         async with aiohttp.ClientSession():
             for link in self.links:
-                playlist = input('Name your playlist: ')
-                playlist_path = os.path.join(self.path, playlist)
-
+                playlist_path = os.path.join(self.path, self.get_playlist_name(link))
                 os.makedirs(playlist_path, exist_ok=True)
                 tasks.append(self.download_song(link, playlist_path))
             await asyncio.gather(*tasks)
 
     async def download_song(self, link, playlist) -> None:
         start_time = asyncio.get_event_loop().time()
-
         os.system('cls||clear')
 
         command = [
-            'yt-dlp', '-P', playlist, 
+            'yt-dlp', '-P', playlist, '-o', {f'{load_config('file_name')}.%(ext)s'},
             '-x', '--audio-format', load_config('format'), 
             '--embed-thumbnail' if load_config('thumbnail') 
             else '--no-embed-thumbnail', link]
@@ -69,18 +77,18 @@ class AudioPipe:
         await process.communicate()
                 
         end_time = asyncio.get_event_loop().time()
-
         os.system('cls||clear')
 
-        print(f'Finished in {(end_time - start_time):.2f}')
+        print(f'Finished in {(end_time - start_time):.2f}s')
 
 def load_config(key):
     default_config = {
         'path': './downloads',
-        'ascii': False,
+        'ascii_art': False,
         'queue': 'queue.txt',
         'format': 'mp3',
-        'thumbnail': True
+        'thumbnail': True,
+        'file_name': '%(title)s'
     }
     config = {}
 

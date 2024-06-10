@@ -1,6 +1,6 @@
 # general
 path = "./downloads" # folder where your playlists belong
-ascii = true # well, some people just don't like it :c
+ascii_art = true # ascii characters for the logo
 
 # download
 queue = 'queue.txt' # will store your links
@@ -8,3 +8,12 @@ queue = 'queue.txt' # will store your links
 # file
 format = 'mp3' # supported formats are: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
 thumbnail = true # thumbnail used by video
+
+# %(title)s: The title of the video.
+# %(id)s: The video ID.
+# %(uploader)s: The uploader of the video.
+# %(upload_date)s: The upload date of the video in YYYYMMDD format.
+# %(track)s: The track name (for music).
+# %(artist)s: The artist (for music).
+
+file_name = '%(title)s' # default song file naming
