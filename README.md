@@ -12,7 +12,7 @@ First things first install yt-dlp [here](https://github.com/yt-dlp/yt-dlp/wiki/I
 
 After installing yt-dlp make sure you have installed needed python libraries:
 ```bash
-python3 -m pip install -U toml colorama
+python3 -m pip install -U toml colorama yt_dlp
 ```
 
 Finally run **main.py**
