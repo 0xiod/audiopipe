@@ -30,7 +30,7 @@ class AudioPipe:
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
-        if load_config('ascii'):
+        if load_config('ascii_art'):
             print(ASCII_ART)
 
         try:
