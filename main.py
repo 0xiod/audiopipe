@@ -1,11 +1,22 @@
 from colorama import init as colorama_init
+from spotipy.oauth2 import SpotifyOAuth
 from colorama import Style
 from colorama import Fore
+from time import sleep
+import datetime
+import spotipy
 import asyncio
 import aiohttp
 import yt_dlp
 import toml
 import os
+import re
+
+# TODO LIST:
+# - Handling Spotify HTTP 429 Error (Max Requests)
+# - Better documentation and more comments on the code
+# - More support on downloading singular tracks
+# - GUI interface
 
 colorama_init()
 
@@ -21,49 +32,156 @@ d8P' ?88  d88   88 d8P' ?88    88Pd8P' ?88`?88'  ?88  88P`?88'  ?88d8b_,dP
                                            d88            d88             
                                            ?8P            ?8P             
 """ + Style.RESET_ALL
+ERROR = f'{Fore.RED}ERROR:{Style.RESET_ALL}'
 
 class AudioPipe:
     def __init__(self, path) -> None:
         self.path = path
-        self.links = []
-
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
+        self.urls = []
 
         if load_config('ascii_art'):
             print(ASCII_ART)
 
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+
         try:
             with open(load_config('queue')) as f:
-                self.links = [line.strip() for line in f.readlines()]
+                self.urls = [line.strip() for line in f.readlines()]
             
             print(
-                f"{len(self.links)} item is available in queue." if len(self.links) == 1 
-                else f"{len(self.links)} items are available in queue.")
+                f"{len(self.urls)} item is available in queue." if len(self.urls) == 1 
+                else f"{len(self.urls)} items are available in queue.")
         except FileNotFoundError:
+            print(ERROR, 'Queue was not found, creating a new file instead.')
+
             with open(load_config('queue'), 'w') as f:
                 f.write("Maybe don't delete the essential files next time ;)")
+            
+            sleep(1)
+            os.system("cls||clear")
+            self.__init__(load_config('path'))
 
-    def get_playlist_name(self, link):
-        options = {
-            'quiet': True,
-            'extract_flat': True
-        }
-        with yt_dlp.YoutubeDL(options) as yt:
-            info_dict = yt.extract_info(link, download=False)
-            playlist_title = info_dict.get('title', 'Unknown Playlist')
-            return playlist_title
+        if load_config('spotify'):
+            try:
+                client_id = load_config('spotify_client_id')
+                client_secret = load_config('spotify_client_secret')
+                redirect_uri = 'http://localhost:8888/callback'
+                scope = 'playlist-read-private'
+
+                self.spotify = spotipy.Spotify(
+                    auth_manager=SpotifyOAuth(
+                    client_id=client_id, client_secret=client_secret,
+                    redirect_uri=redirect_uri, scope=scope))
+            except spotipy.oauth2.SpotifyOauthError:
+                print(ERROR, "spotify_client_id or/and spotify_client_secret is/are missing. Configure it in config.toml")
+                exit()
+
+    def get_playlist_name(self, url):
+        if self.is_spotify(url):
+            playlist_id = self.get_playlist_id(url)
+            if playlist_id:
+                try:
+                    playlist_data = self.spotify.playlist(playlist_id)
+                    playlist_name = playlist_data.get('name', 'Unknown Playlist')
+                    return playlist_name
+                except spotipy.SpotifyException as e:
+                    print(ERROR, f"Failed to fetch playlist information from Spotify: {e}")
+                    return 'Unknown Playlist'
+            else:
+                print(ERROR, "Failed to extract playlist ID from Spotify URL.")
+                return 'Unknown Playlist'
+        else:
+            options = {
+                'quiet': True,
+                'extract_flat': True
+            }
+            with yt_dlp.YoutubeDL(options) as yt:
+                info_dict = yt.extract_info(url, download=False)
+                playlist_title = info_dict.get('title', 'Unknown Playlist')
+                return playlist_title
+
+    def is_spotify(self, url):
+        pattern = r'https?://(?:open|play)\.spotify\.com/(?:(?:user/[^/]+|artist|album|track|playlist)/[a-zA-Z0-9]+)'
+        return bool(re.match(pattern, url))
+    
+    def is_youtube(self, url):
+        pattern = r'https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[a-zA-Z0-9_-]+'
+        return bool(re.match(pattern, url))
+
+    def get_playlist_id(self, url: str):
+        pattern = r'https?://open.spotify.com/(?:playlist|album|track)/([a-zA-Z0-9]+)'
+        match = re.match(pattern, url)
+        if match:
+            return match.group(1)
+        return None
 
     async def download(self) -> None:
         tasks = []
-        async with aiohttp.ClientSession():
-            for link in self.links:
-                playlist_path = os.path.join(self.path, self.get_playlist_name(link))
-                os.makedirs(playlist_path, exist_ok=True)
-                tasks.append(self.download_song(link, playlist_path))
-            await asyncio.gather(*tasks)
 
-    async def download_song(self, link, playlist) -> None:
+        async with aiohttp.ClientSession():            
+            for url in self.urls:
+                if self.is_youtube(url) or self.is_spotify(url):
+                    playlist_path = os.path.join(self.path, self.get_playlist_name(url))
+                    os.makedirs(playlist_path, exist_ok=True)
+
+                    if load_config('spotify') and self.is_spotify(url):
+                        playlist_id = self.get_playlist_id(url)
+                        if playlist_id:
+                            tasks.append(self.spotify_dl(playlist_id, playlist_path))
+                    else:
+                        tasks.append(self.youtube_dl(url, playlist_path))
+                else:
+                    print(ERROR, "Invalid URL:", url)
+        await asyncio.gather(*tasks)
+
+    async def spotify_dl(self, playlist_id, playlist) -> None:
+        retries = 0
+        try:
+            playlist_data = self.spotify.playlist_tracks(playlist_id)
+            for item in playlist_data.get('items', []):
+                artists = [artist.get('name') for artist in track_info.get('artists', [])]
+                track_info = item.get('track', {})
+
+                track_name = track_info.get('name')
+                artist = ", ".join(artists)
+                query = f"{track_name} {artist}"
+
+                start_time = asyncio.get_event_loop().time()
+
+                os.system('cls||clear')
+
+                print(f"Downloading {track_name} by {artist}...")
+                options = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': load_config('format'),
+                        'preferredquality': '192',
+                    }],
+                    'embedthumbnail': load_config('thumbnail'),
+                    'quiet': not load_config('verbose'),
+                    'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
+                }
+
+                with yt_dlp.YoutubeDL(options) as yt:
+                    try:
+                        info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
+                        print(f"Downloaded: {info['title']}")
+                    except Exception as e:
+                        print(ERROR, f"Could not download {track_name}: {e}")
+                        
+                end_time = asyncio.get_event_loop().time()
+                os.system('cls||clear')
+                
+                elapsed_time = datetime.timedelta(seconds=(end_time - start_time))
+
+                print(f'Finished in {str(elapsed_time)}')
+        except spotipy.SpotifyException as e:
+            print(f"Failed to fetch tracks from Spotify playlist {playlist_id}: {e}")
+
+    async def youtube_dl(self, url, playlist) -> None:
         start_time = asyncio.get_event_loop().time()
         os.system('cls||clear')
 
@@ -81,14 +199,16 @@ class AudioPipe:
         }
 
         with yt_dlp.YoutubeDL(options) as yt:
-            yt.download([link])
+            yt.download([url])
                 
         end_time = asyncio.get_event_loop().time()
         os.system('cls||clear')
 
-        print(f'Finished in {(end_time - start_time):.2f}s')
+        elapsed_time = datetime.timedelta(seconds=(end_time - start_time))
 
-def load_config(key):
+        print(f'Finished in {str(elapsed_time)}')
+
+def load_config(key: str):
     default_config = {
         'gui': False,
         'path': './downloads',
@@ -97,7 +217,10 @@ def load_config(key):
         'format': 'mp3',
         'thumbnail': True,
         'file_name': '%(title)s',
-        'verbose': True
+        'verbose': True,
+        'spotify': False,
+        'spotify_client_id': '',
+        'spotify_client_secret': ''
     }
     config = {}
 

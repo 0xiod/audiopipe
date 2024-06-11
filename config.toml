@@ -1,6 +1,12 @@
 # general
 path = "./downloads" # folder where your playlists belong
-gui = false # TODO: graphical interface instead of a terminal one
+gui = false # graphical interface instead of a terminal one
+
+# spotify
+spotify = true # downloading music from spotify
+spotify_client_id = 'YOUR_ID'
+spotify_client_secret = 'YOUR_SECRET'
+# for help with spotify check documentation or README.md
 
 # download
 queue = 'queue.txt' # will store your links
