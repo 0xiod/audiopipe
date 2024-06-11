@@ -13,7 +13,7 @@ The point of making this project is to prove my boyfriend that if i can write go
 Just install those python libraries:
 
 ```bash
-python3 -m pip install -U toml colorama yt_dlp
+python3 -m pip install -U toml colorama yt_dlp spotipy
 ```
 And run **main.py**
 
