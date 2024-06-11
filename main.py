@@ -1,9 +1,9 @@
 from colorama import init as colorama_init
 from colorama import Style
 from colorama import Fore
-import yt_dlp
 import asyncio
 import aiohttp
+import yt_dlp
 import toml
 import os
 
@@ -45,12 +45,12 @@ class AudioPipe:
                 f.write("Maybe don't delete the essential files next time ;)")
 
     def get_playlist_name(self, link):
-        ydl_opts = {
+        options = {
             'quiet': True,
             'extract_flat': True
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(link, download=False)
+        with yt_dlp.YoutubeDL(options) as yt:
+            info_dict = yt.extract_info(link, download=False)
             playlist_title = info_dict.get('title', 'Unknown Playlist')
             return playlist_title
 
@@ -67,14 +67,21 @@ class AudioPipe:
         start_time = asyncio.get_event_loop().time()
         os.system('cls||clear')
 
-        command = [
-            'yt-dlp', '-P', playlist, '-o', {f'{load_config('file_name')}.%(ext)s'},
-            '-x', '--audio-format', load_config('format'), 
-            '--embed-thumbnail' if load_config('thumbnail') 
-            else '--no-embed-thumbnail', link]
-        
-        process = await asyncio.create_subprocess_exec(*command)
-        await process.communicate()
+        options = {
+            'format': 'bestaudio/best',
+            'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': load_config('format'),
+                'preferredquality': '192',
+            }],
+            'embedthumbnail': load_config('thumbnail'),
+            'quiet': not load_config('verbose'),
+            'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
+        }
+
+        with yt_dlp.YoutubeDL(options) as yt:
+            yt.download([link])
                 
         end_time = asyncio.get_event_loop().time()
         os.system('cls||clear')
@@ -83,12 +90,14 @@ class AudioPipe:
 
 def load_config(key):
     default_config = {
+        'gui': False,
         'path': './downloads',
         'ascii_art': False,
         'queue': 'queue.txt',
         'format': 'mp3',
         'thumbnail': True,
-        'file_name': '%(title)s'
+        'file_name': '%(title)s',
+        'verbose': True
     }
     config = {}
 
