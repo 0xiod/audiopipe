@@ -5,7 +5,7 @@ Command-line audio downloader based on yt-dlp, that does a good job on making pl
 
 ## Installation
 
-Just install those python libraries:
+Just run this command in project's folder:
 
 ```bash
 python3 -m pip install -r requirements.txt
