@@ -140,11 +140,12 @@ class AudioPipe:
         try:
             playlist_data = self.spotify.playlist_tracks(playlist_id)
             for item in playlist_data.get('items', []):
-                artists = [artist.get('name') for artist in track_info.get('artists', [])]
                 track_info = item.get('track', {})
+                artists = [artist.get('name') for artist in track_info.get('artists', [])]
 
                 track_name = track_info.get('name')
                 artist = ", ".join(artists)
+                
                 query = f"{track_name} {artist}"
 
                 start_time = asyncio.get_event_loop().time()
