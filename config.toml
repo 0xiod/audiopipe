@@ -15,6 +15,7 @@ queue = 'queue.txt' # will store your links
 format = 'mp3' # supported formats are: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
 thumbnail = true # thumbnail used by video
 file_name = '%(title)s' # default song file naming
+quality = 192 # sound quality of songs
 
 # %(title)s: The title of the video.
 # %(id)s: The video ID.
