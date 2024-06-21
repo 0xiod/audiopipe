@@ -8,7 +8,7 @@ Command-line audio downloader based on yt-dlp, that does a good job on making pl
 Just install those python libraries:
 
 ```bash
-python3 -m pip install -U toml colorama yt_dlp spotipy
+python3 -m pip install -U toml colorama yt_dlp spotipy aiohttp
 ```
 And run **main.py**
 
