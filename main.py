@@ -12,24 +12,8 @@ import toml
 import os
 import re
 
-# TODO LIST:
-# - Handling of Spotify's HTTP 429 Error (Max Requests)
-# - GUI interface
-
 colorama_init()
 
-ASCII_ART = Fore.CYAN + """
-                         d8b   d8,                    d8,                 
-                         88P  `8P                    `8P                  
-                        d88                                               
- d888b8b  ?88   d8P d888888    88b d8888b ?88,.d88b,  88b?88,.d88b, d8888b
-d8P' ?88  d88   88 d8P' ?88    88Pd8P' ?88`?88'  ?88  88P`?88'  ?88d8b_,dP
-88b  ,88b ?8(  d88 88b  ,88b  d88 88b  d88  88b  d8P d88   88b  d8P88b    
-`?88P'`88b`?88P'?8b`?88P'`88bd88' `?8888P'  888888P'd88'   888888P'`?888P'
-                                            88P'           88P'           
-                                           d88            d88             
-                                           ?8P            ?8P             
-""" + Style.RESET_ALL
 ERROR = f'{Fore.RED}ERROR:{Style.RESET_ALL}'
 
 class AudioPipe:
@@ -37,13 +21,21 @@ class AudioPipe:
         self.path = path
         self.urls = []
 
-        if load_config('ascii_art'):
-            print(ASCII_ART)
+        # Will print any ascii art
+        self.get_ascii()
 
+        # Preparation for the program to run
+        self.check_queue()
+
+        # Connect with spotify api
+        self.get_spotipy()
+
+    
+    # Check if path exists and read queue file in search of items
+    def check_queue(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
-        # Will check queue for items
         try:
             with open(load_config('queue')) as f:
                 self.urls = [line.strip() for line in f.readlines()]
@@ -61,7 +53,16 @@ class AudioPipe:
             os.system("cls||clear")
             self.__init__(load_config('path'))
 
-        # Initialize spotify
+
+    # Print your desired ascii art
+    def get_ascii(self):
+        if load_config("ascii_art"):
+            with open("ascii.art", "r") as f:
+                print(Fore.CYAN + f.read() + Style.RESET_ALL)
+            
+
+    # Initialize spotipy
+    def get_spotipy(self):
         if load_config('spotify'):
             try:
                 client_id = load_config('spotify_client_id')
@@ -110,9 +111,9 @@ class AudioPipe:
         return bool(re.match(pattern, url))
     
     def is_youtube(self, url):
-        pattern = r'https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[a-zA-Z0-9_-]+'
+        pattern = r'https?://(?:www\.)?(?:youtube\.com/\?v=|youtu\.be/)[a-zA-Z0-9_-]+'
         return bool(re.match(pattern, url))
-
+    
 
     # Fetching spotify's album, playlist or track
     def get_playlist_id(self, url: str):
@@ -122,14 +123,13 @@ class AudioPipe:
             return match.group(1)
         return None
 
-
     # The main method for download process
     async def download(self) -> None:
         tasks = []
 
         async with aiohttp.ClientSession():            
             for url in self.urls:
-                if self.is_youtube(url) or self.is_spotify(url): # Check for valid url
+                # if self.is_youtube(url) or self.is_spotify(url): # Check for valid url
                     
                     # Create a playlist directory
                     playlist_path = os.path.join(self.path, self.get_playlist_name(url))
@@ -141,8 +141,8 @@ class AudioPipe:
                             tasks.append(self.spotify_dl(playlist_id, playlist_path))
                     else: # YouTube
                         tasks.append(self.youtube_dl(url, playlist_path))
-                else:
-                    print(ERROR, "Invalid URL:", url)
+                # else:
+                    # print(ERROR, "Invalid URL:", url)
         await asyncio.gather(*tasks)
 
 
@@ -229,7 +229,7 @@ class AudioPipe:
         print(f'Finished in {str(elapsed_time)}')
 
 
-# Handling user config
+# Handling user's config
 def load_config(key: str):
 
     # Incase of missing config file
