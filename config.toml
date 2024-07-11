@@ -1,6 +1,5 @@
 # general
 path = "./downloads" # folder where your playlists belong
-gui = false # graphical interface instead of a terminal one
 
 # spotify
 spotify = true # downloading music from spotify

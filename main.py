@@ -234,7 +234,6 @@ def load_config(key: str):
 
     # Incase of missing config file
     default_config = {
-        'gui': False,
         'path': './downloads',
         'ascii_art': False,
         'queue': 'queue.txt',
