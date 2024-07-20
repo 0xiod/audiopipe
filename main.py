@@ -96,7 +96,7 @@ class AudioPipe:
                 return 'Unknown Playlist'
         else:
             options = {
-                'quiet': True,
+                'quiet': not load_config("verbose"),
                 'extract_flat': True
             }
             with yt_dlp.YoutubeDL(options) as yt:
@@ -129,20 +129,20 @@ class AudioPipe:
 
         async with aiohttp.ClientSession():            
             for url in self.urls:
-                # if self.is_youtube(url) or self.is_spotify(url): # Check for valid url
+                if self.is_youtube(url) or self.is_spotify(url): # Check for valid url
                     
                     # Create a playlist directory
                     playlist_path = os.path.join(self.path, self.get_playlist_name(url))
                     os.makedirs(playlist_path, exist_ok=True)
 
-                    if load_config('spotify'): # Spotify
+                    if not load_config('spotify'): # YouTube
+                        tasks.append(self.youtube_dl(url, playlist_path))
+                    else: # Spotify
                         playlist_id = self.get_playlist_id(url)
                         if playlist_id:
                             tasks.append(self.spotify_dl(playlist_id, playlist_path))
-                    else: # YouTube
-                        tasks.append(self.youtube_dl(url, playlist_path))
-                # else:
-                    # print(ERROR, "Invalid URL:", url)
+                else:
+                    print(ERROR, "Invalid URL:", url)
         await asyncio.gather(*tasks)
 
 
