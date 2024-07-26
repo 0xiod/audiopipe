@@ -35,7 +35,3 @@ Replace these two in config.toml, and you're ready to go!
 ## Why?
 
 The point of making this project is to prove my boyfriend that if i can write good code, he can too lol.
-## Authors
-
-- [@Halfieee](https://github.com/Halfieee/) - my boyfriend
-- [@iodomi](https://github.com/iodomi/) - me
