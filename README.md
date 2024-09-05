@@ -12,7 +12,7 @@ python3 -m pip install -r requirements.txt
 ```
 And run **main.py**
 
-Simple as that!
+
 ## Configuration
 
 First of all, go to [Spotify developer dashboard](https://developer.spotify.com/dashboard)
@@ -29,9 +29,8 @@ After creating new app click on it and go in it's settings.
 
 Copy Client ID and Client secret
 
-![3](/assets/3.png?raw=true)
+![3](/assets/3.jpg?raw=true)
 
-Replace these two in config.toml, and you're ready to go!
-## Why?
+Replace these two in config.yaml, and you're ready to go!
 
-The point of making this project is to prove my boyfriend that if i can write good code, he can too lol.
+Simple as that!

@@ -1,37 +1,18 @@
-from colorama import init as colorama_init
-from spotipy.oauth2 import SpotifyOAuth
-from colorama import Style
-from colorama import Fore
-from time import sleep
-import datetime
-import spotipy
-import asyncio
-import aiohttp
+from spotipy import SpotifyOAuth
+
 import yt_dlp
-import toml
+import spotipy
 import os
+import yaml
 import re
 
-colorama_init()
-
-ERROR = f'{Fore.RED}ERROR:{Style.RESET_ALL}'
-
 class AudioPipe:
-    def __init__(self, path) -> None:
+    def __init__(self, path: str) -> None:
         self.path = path
         self.urls = []
-
-        # Will print any ascii art
-        self.get_ascii()
-
-        # Preparation for the program to run
         self.check_queue()
-
-        # Connect with spotify api
         self.get_spotipy()
-
     
-    # Check if path exists and read queue file in search of items
     def check_queue(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
@@ -43,30 +24,24 @@ class AudioPipe:
             print(
                 f"{len(self.urls)} item is available in queue." if len(self.urls) == 1 
                 else f"{len(self.urls)} items are available in queue.")
+
+            if (len(self.urls) <= 0):
+                self.urls = [input("Insert song url: ")]
+
         except FileNotFoundError:
-            print(ERROR, 'Queue was not found, creating a new file instead.')
+            print('ERROR: Queue was not found, creating a new file instead.')
 
             with open(load_config('queue'), 'w') as f:
                 f.write("Maybe don't delete the essential files next time ;)")
             
-            sleep(1)
             os.system("cls||clear")
             self.__init__(load_config('path'))
 
-
-    # Print your desired ascii art
-    def get_ascii(self):
-        if load_config("ascii_art"):
-            with open("ascii.art", "r") as f:
-                print(Fore.CYAN + f.read() + Style.RESET_ALL)
-            
-
-    # Initialize spotipy
     def get_spotipy(self):
         if load_config('spotify'):
             try:
-                client_id = load_config('spotify_client_id')
-                client_secret = load_config('spotify_client_secret')
+                client_id = load_config('id')
+                client_secret = load_config('secret')
                 redirect_uri = 'http://localhost:8888/callback'
                 scope = 'playlist-read-private'
 
@@ -75,14 +50,12 @@ class AudioPipe:
                     client_id=client_id, client_secret=client_secret,
                     redirect_uri=redirect_uri, scope=scope))
             except spotipy.oauth2.SpotifyOauthError:
-                print(ERROR, "spotify_client_id or/and spotify_client_secret is/are missing. Configure it in config.toml")
+                print("ERROR: id or/and secret is/are missing. Configure it in the config file")
                 exit()
 
-
-    # Fetching name of the playlist
-    def get_playlist_name(self, url):
-        if self.is_spotify(url):
-            playlist_id = self.get_playlist_id(url)
+    def get_playlist_name(self, url: str):
+        if self.is_spotify(url) and load_config('spotify'):
+            playlist_id = self.get_spotify_id(url)
             if playlist_id:
                 try:
                     playlist_data = self.spotify.playlist(playlist_id)
@@ -94,7 +67,7 @@ class AudioPipe:
             else:
                 print(ERROR, "Failed to extract playlist ID from Spotify URL.")
                 return 'Unknown Playlist'
-        else:
+        else: # case for youtube
             options = {
                 'quiet': not load_config("verbose"),
                 'extract_flat': True
@@ -104,138 +77,104 @@ class AudioPipe:
                 playlist_title = info_dict.get('title', 'Unknown Playlist')
                 return playlist_title
 
-
-    # Simple checks for spotify and youtube
-    def is_spotify(self, url):
+    def is_spotify(self, url: str):
         pattern = r'https?://(?:open|play)\.spotify\.com/(?:(?:user/[^/]+|artist|album|track|playlist)/[a-zA-Z0-9]+)'
-        return bool(re.match(pattern, url))
+        return bool(re.search(pattern, url))
     
-    def is_youtube(self, url):
-        pattern = r'https?://(?:www\.)?(?:youtube\.com/\?v=|youtu\.be/)[a-zA-Z0-9_-]+'
-        return bool(re.match(pattern, url))
-    
+    def is_youtube(self, url: str):
+        pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
+        return bool(re.search(pattern, url))
 
-    # Fetching spotify's album, playlist or track
-    def get_playlist_id(self, url: str):
-        pattern = r'https?://open.spotify.com/(?:playlist|album|track)/([a-zA-Z0-9]+)'
-        match = re.match(pattern, url)
+    def get_spotify_id(self, url: str):
+        pattern = r'https?://open\.spotify\.com/(album|track|playlist)/([a-zA-Z0-9]+)'
+        match = re.search(pattern, url)
         if match:
-            return match.group(1)
+            return match.group(2)
         return None
 
-    # The main method for download process
-    async def download(self) -> None:
-        tasks = []
+    def download(self) -> None:
+        for url in self.urls:
+            # Check for valid url
+            # Create a directory for playlist
+            playlist = os.path.join(self.path, self.get_playlist_name(url))
+            os.makedirs(playlist, exist_ok=True)
 
-        async with aiohttp.ClientSession():            
-            for url in self.urls:
-                if self.is_youtube(url) or self.is_spotify(url): # Check for valid url
-                    
-                    # Create a playlist directory
-                    playlist_path = os.path.join(self.path, self.get_playlist_name(url))
-                    os.makedirs(playlist_path, exist_ok=True)
+            options = {
+                'format': 'bestaudio/best',
+                'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': load_config('format'),
+                    'preferredquality': str(load_config('quality')),
+                }],
+                'embedthumbnail': load_config('thumbnail'),
+                'quiet': not load_config('verbose'),
+                'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
+            }
 
-                    if not load_config('spotify'): # YouTube
-                        tasks.append(self.youtube_dl(url, playlist_path))
-                    else: # Spotify
-                        playlist_id = self.get_playlist_id(url)
-                        if playlist_id:
-                            tasks.append(self.spotify_dl(playlist_id, playlist_path))
+            def youtube():
+                if self.is_youtube(url):
+                    os.system('cls||clear')
+
+                    # Downloading a song from youtube
+                    with yt_dlp.YoutubeDL(options) as yt:
+                        yt.download([url])
+
+                    os.system('cls||clear')
                 else:
-                    print(ERROR, "Invalid URL:", url)
-        await asyncio.gather(*tasks)
+                    os.system('cls||clear')
 
-
-    # Responsible for downloading spotify playlists
-    async def spotify_dl(self, playlist_id, playlist) -> None:
-        try:
-            playlist_data = self.spotify.playlist_tracks(playlist_id)
-            for item in playlist_data.get('items', []):
-
-                # Gather of informations to feed algorithm with
-                track_info = item.get('track', {})
-                artists = [artist.get('name') for artist in track_info.get('artists', [])]
-
-                track_name = track_info.get('name')
-                artist = ", ".join(artists)
-                
-                query = f"{track_name} {artist}"
-
-                start_time = asyncio.get_event_loop().time()
+                    with yt_dlp.YoutubeDL(options) as yt:
+                        result = yt.extract_info(query, download=False)
+                        if 'entries' in result:
+                            video = result['entries'][0]
+                        else:
+                            video = result
+                return f"https://www.youtube.com/watch?v={video['id']}"
 
                 os.system('cls||clear')
-                print(f"Downloading {track_name} by {artist}...")
-
-                # yt-dlp options for a song download
-                options = {
-                    'format': 'bestaudio/best',
-                    'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': load_config('format'),
-                        'preferredquality': str(load_config('quality')),
-                    }],
-                    'embedthumbnail': load_config('thumbnail'),
-                    'quiet': not load_config('verbose'),
-                    'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
-                }
-
-                # Use of song search algorithm
-                with yt_dlp.YoutubeDL(options) as yt:
+                
+            def spotify():
+                if self.is_spotify(url):
+                    id = self.get_spotify_id(url)
                     try:
-                        info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
-                        print(f"Downloaded: {info['title']}")
-                    except Exception as e:
-                        print(ERROR, f"Could not download {track_name}: {e}")
+                        playlist_data = self.spotify.playlist_tracks(playlist_id)
+                        for item in playlist_data.get('items', []):
+                            # Gather information to feed algorithm with
+                            track_info = item.get('track', {})
+                            artists = [artist.get('name') for artist in track_info.get('artists', [])]
+
+                            track_name = track_info.get('name')
+                            artist = ", ".join(artists)
                         
-                end_time = asyncio.get_event_loop().time()
-                os.system('cls||clear')
-                
-                elapsed_time = datetime.timedelta(seconds=(end_time - start_time))
+                            query = f"{track_name} {artist}"
 
-                print(f'Finished in {str(elapsed_time)}')
-        except spotipy.SpotifyException as e:
-            print(f"Failed to fetch tracks from Spotify playlist {playlist_id}: {e}")
+                            os.system('cls||clear')
+                            print(f"Downloading {track_name} by {artist}...")
 
+                            # Use song search algorithm
+                            with yt_dlp.YoutubeDL(options) as yt:
+                                try:
+                                    info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
+                                    print(f"Downloaded: {info['title']}")
+                                except Exception as e:
+                                    print(f"ERROR: Could not download {track_name}: {e}")
+                    
+                        os.system('cls||clear')
+                    except Exception as e:
+                        print(f"ERROR: Failed to fetch {id} from spotify: {e}")
 
-    # Basic method of downloading youtube playlists
-    async def youtube_dl(self, url, playlist) -> None:
-        start_time = asyncio.get_event_loop().time()
-        os.system('cls||clear')
-
-        # yt-dlp options for a song download
-        options = {
-            'format': 'bestaudio/best',
-            'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': load_config('format'),
-                'preferredquality': str(load_config('quality')),
-            }],
-            'embedthumbnail': load_config('thumbnail'),
-            'quiet': not load_config('verbose'),
-            'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
-        }
-
-        # Downloading
-        with yt_dlp.YoutubeDL(options) as yt:
-            yt.download([url])
-                
-        end_time = asyncio.get_event_loop().time()
-        os.system('cls||clear')
-
-        elapsed_time = datetime.timedelta(seconds=(end_time - start_time))
-
-        print(f'Finished in {str(elapsed_time)}')
-
+            if self.is_spotify(url) and load_config("spotify"):
+                spotify()
+            elif self.is_youtube(url):
+                youtube()
 
 # Handling user's config
 def load_config(key: str):
 
-    # Incase of missing config file
+    # Incase of a missing config file
     default_config = {
         'path': './downloads',
-        'ascii_art': False,
         'queue': 'queue.txt',
         'format': 'mp3',
         'thumbnail': True,
@@ -243,31 +182,32 @@ def load_config(key: str):
         'quality': 192,
         'verbose': True,
         'spotify': False,
-        'spotify_client_id': '',
-        'spotify_client_secret': ''
+        'id': '',
+        'secret': ''
     }
     config = {}
 
-    if os.path.exists('config.toml'): # Config file check
+    if os.path.exists('config.yaml'): # Config file check
         try:
-            with open('config.toml', 'r') as f:
-                config = toml.load(f) # Reading config
+            with open('config.yaml', 'r') as f:
+                config = yaml.safe_load(f) # Reading config
         except Exception as e:
-            print(f"Error reading config.toml: {e}")
+            print(f"ERROR: could not read config file: {e}")
             print("Loading default settings.")
             config = default_config
     else:
-        print("config.toml not found, creating a new one with default config.")
-        with open('config.toml', 'w') as f:
-            toml.dump(default_config, f)
+        print("ERROR: config file was not found")
+        print("Creating a new")
+        with open('config.yaml', 'w') as f:
+            yaml.dump(default_config, f)
         config = default_config
     
     return config.get(key, default_config.get(key))
 
 
-async def main():
+def main():
     main = AudioPipe(load_config('path'))
-    await main.download()
+    main.download()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
