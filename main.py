@@ -1,35 +1,35 @@
 from spotipy import SpotifyOAuth
 
-import yt_dlp
-import spotipy
 import os
-import yaml
 import re
+import yaml
+import spotipy
+import yt_dlp
 
 class AudioPipe:
     def __init__(self, path: str) -> None:
         self.path = path
         self.urls = []
         self.check_queue()
-        self.get_spotipy()
+        self.spotify = self.get_spotipy()
     
     def check_queue(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
         try:
-            with open(load_config('queue')) as f:
+            with open(load_config('queue'), 'r') as f:
                 self.urls = [line.strip() for line in f.readlines()]
             
             print(
-                f"{len(self.urls)} item is available in queue." if len(self.urls) == 1 
+                f"{len(self.urls)} item is available in queue." if len(self.urls) > 1 
                 else f"{len(self.urls)} items are available in queue.")
 
             if (len(self.urls) <= 0):
                 self.urls = [input("Insert song url: ")]
 
         except FileNotFoundError:
-            print('ERROR: Queue was not found, creating a new file instead.')
+            print('ERROR: Queue was not found, creating a new file.')
 
             with open(load_config('queue'), 'w') as f:
                 f.write("Maybe don't delete the essential files next time ;)")
@@ -45,22 +45,25 @@ class AudioPipe:
                 redirect_uri = 'http://localhost:8888/callback'
                 scope = 'playlist-read-private'
 
-                self.spotify = spotipy.Spotify(
+                return spotipy.Spotify(
                     auth_manager=SpotifyOAuth(
-                    client_id=client_id, client_secret=client_secret,
-                    redirect_uri=redirect_uri, scope=scope))
-            except spotipy.oauth2.SpotifyOauthError:
-                print("ERROR: id or/and secret is/are missing. Configure it in the config file")
+                        client_id=client_id, 
+                        client_secret=client_secret,
+                        redirect_uri=redirect_uri, 
+                        scope=scope
+                    )
+                )
+            except spotipy.oauth2.SpotifyOauthError as e:
+                print(f"ERROR: Spotify authentication failed: {e}")
                 exit()
+        return None
 
     def get_playlist_name(self, url: str):
         if self.is_spotify(url) and load_config('spotify'):
-            playlist_id = self.get_spotify_id(url)
-            if playlist_id:
+            playlist_id = self.get_playlist_id(url)
+            if playlist_id and self.spotify:
                 try:
-                    playlist_data = self.spotify.playlist(playlist_id)
-                    playlist_name = playlist_data.get('name', 'Unknown Playlist')
-                    return playlist_name
+                    return self.spotify.playlist(playlist_id).get('name', 'Unknown Playlist')
                 except spotipy.SpotifyException as e:
                     print(ERROR, f"Failed to fetch playlist information from Spotify: {e}")
                     return 'Unknown Playlist'
@@ -68,14 +71,10 @@ class AudioPipe:
                 print(ERROR, "Failed to extract playlist ID from Spotify URL.")
                 return 'Unknown Playlist'
         else: # case for youtube
-            options = {
-                'quiet': not load_config("verbose"),
-                'extract_flat': True
-            }
+            options = {'quiet': not load_config("verbose"), 'extract_flat': True}
             with yt_dlp.YoutubeDL(options) as yt:
                 info_dict = yt.extract_info(url, download=False)
-                playlist_title = info_dict.get('title', 'Unknown Playlist')
-                return playlist_title
+                return info_dict.get('title', 'Unknown Playlist')
 
     def is_spotify(self, url: str):
         pattern = r'https?://(?:open|play)\.spotify\.com/(?:(?:user/[^/]+|artist|album|track|playlist)/[a-zA-Z0-9]+)'
@@ -85,18 +84,19 @@ class AudioPipe:
         pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
         return bool(re.search(pattern, url))
 
-    def get_spotify_id(self, url: str):
+    def get_playlist_id(self, url: str):
         pattern = r'https?://open\.spotify\.com/(album|track|playlist)/([a-zA-Z0-9]+)'
         match = re.search(pattern, url)
-        if match:
-            return match.group(2)
-        return None
+        return match.group(2) if match else None
 
     def download(self) -> None:
         for url in self.urls:
-            # Check for valid url
-            # Create a directory for playlist
-            playlist = os.path.join(self.path, self.get_playlist_name(url))
+            if not (self.is_spotify(url) or self.is_youtube(url)):
+                print(f"ERROR: Unsupported type of URL: {url}")
+                continue
+
+            playlist_name = self.get_playlist_name(url)
+            playlist = os.path.join(self.path, playlist_name)
             os.makedirs(playlist, exist_ok=True)
 
             options = {
@@ -135,35 +135,31 @@ class AudioPipe:
                 os.system('cls||clear')
                 
             def spotify():
-                if self.is_spotify(url):
-                    id = self.get_spotify_id(url)
-                    try:
-                        playlist_data = self.spotify.playlist_tracks(playlist_id)
-                        for item in playlist_data.get('items', []):
-                            # Gather information to feed algorithm with
-                            track_info = item.get('track', {})
-                            artists = [artist.get('name') for artist in track_info.get('artists', [])]
+                playlist_id = self.get_playlist_id(url)
+                if not playlist_id:
+                    print("ERROR: Invalid Spotify playlist ID.")
+                    return
+                
+                playlist_tracks = self.spotify.playlist_tracks(playlist_id)
+                for item in playlist_tracks['items']:
+                    # Gather information to feed algorithm with
+                    track = item['track']
+                    track_name = track['name']
+                    artist_name = ', '.join([artist['name'] for artist in track['artists']])
+                    query = f"{track_name} {artist_name}"
 
-                            track_name = track_info.get('name')
-                            artist = ", ".join(artists)
-                        
-                            query = f"{track_name} {artist}"
+                    os.system('cls||clear')
+                    print(f"Searching YouTube for {track_name} by {artist_name}...")
 
-                            os.system('cls||clear')
-                            print(f"Downloading {track_name} by {artist}...")
-
-                            # Use song search algorithm
-                            with yt_dlp.YoutubeDL(options) as yt:
-                                try:
-                                    info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
-                                    print(f"Downloaded: {info['title']}")
-                                except Exception as e:
-                                    print(f"ERROR: Could not download {track_name}: {e}")
+                    # Use song search algorithm
+                    with yt_dlp.YoutubeDL(options) as yt:
+                        try:
+                            info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
+                            print(f"Downloaded: {info['title']}")
+                        except Exception as e:
+                            print(f"ERROR: Could not download {track_name}: {e}")
+                    os.system('cls||clear')
                     
-                        os.system('cls||clear')
-                    except Exception as e:
-                        print(f"ERROR: Failed to fetch {id} from spotify: {e}")
-
             if self.is_spotify(url) and load_config("spotify"):
                 spotify()
             elif self.is_youtube(url):
