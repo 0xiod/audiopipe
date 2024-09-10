@@ -1,10 +1,12 @@
+from multiprocessing import Process
 from spotipy import SpotifyOAuth
+from spotipy import SpotifyException, SpotifyOauthError
+from spotipy import Spotify
+from yt_dlp import YoutubeDL
+from re import search
 
+import time
 import os
-import re
-import yaml
-import spotipy
-import yt_dlp
 
 class AudioPipe:
     def __init__(self, path: str) -> None:
@@ -26,7 +28,7 @@ class AudioPipe:
                 else f"{len(self.urls)} items are available in queue.")
 
             if (len(self.urls) <= 0):
-                self.urls = [input("Insert song url: ")]
+                self.urls = [input("Insert song or playlist URL: ")]
 
         except FileNotFoundError:
             print('ERROR: Queue was not found, creating a new file.')
@@ -45,15 +47,14 @@ class AudioPipe:
                 redirect_uri = 'http://localhost:8888/callback'
                 scope = 'playlist-read-private'
 
-                return spotipy.Spotify(
+                return Spotify(
                     auth_manager=SpotifyOAuth(
-                        client_id=client_id, 
-                        client_secret=client_secret,
-                        redirect_uri=redirect_uri, 
-                        scope=scope
-                    )
-                )
-            except spotipy.oauth2.SpotifyOauthError as e:
+                    client_id=client_id, 
+                    client_secret=client_secret,
+                    redirect_uri=redirect_uri, 
+                    scope=scope))
+
+            except SpotifyOauthError as e:
                 print(f"ERROR: Spotify authentication failed: {e}")
                 exit()
         return None
@@ -64,7 +65,7 @@ class AudioPipe:
             if playlist_id and self.spotify:
                 try:
                     return self.spotify.playlist(playlist_id).get('name', 'Unknown Playlist')
-                except spotipy.SpotifyException as e:
+                except SpotifyException as e:
                     print(ERROR, f"Failed to fetch playlist information from Spotify: {e}")
                     return 'Unknown Playlist'
             else:
@@ -72,32 +73,31 @@ class AudioPipe:
                 return 'Unknown Playlist'
         else: # case for youtube
             options = {'quiet': not load_config("verbose"), 'extract_flat': True}
-            with yt_dlp.YoutubeDL(options) as yt:
+            with YoutubeDL(options) as yt:
                 info_dict = yt.extract_info(url, download=False)
                 return info_dict.get('title', 'Unknown Playlist')
 
     def is_spotify(self, url: str):
         pattern = r'https?://(?:open|play)\.spotify\.com/(?:(?:user/[^/]+|artist|album|track|playlist)/[a-zA-Z0-9]+)'
-        return bool(re.search(pattern, url))
-    
-    def is_youtube(self, url: str):
-        pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
-        return bool(re.search(pattern, url))
+        return bool(search(pattern, url))
 
     def get_playlist_id(self, url: str):
         pattern = r'https?://open\.spotify\.com/(album|track|playlist)/([a-zA-Z0-9]+)'
-        match = re.search(pattern, url)
+        match = search(pattern, url)
         return match.group(2) if match else None
 
     def download(self) -> None:
         for url in self.urls:
-            if not (self.is_spotify(url) or self.is_youtube(url)):
-                print(f"ERROR: Unsupported type of URL: {url}")
-                continue
-
-            playlist_name = self.get_playlist_name(url)
+            playlist_name: str = self.get_playlist_name(url)
             playlist = os.path.join(self.path, playlist_name)
             os.makedirs(playlist, exist_ok=True)
+
+            proxies = load_config('proxies')
+            proxy = None
+
+            def get_random_proxy():
+                from random import choice
+                return choice(proxies) if proxies else None
 
             options = {
                 'format': 'bestaudio/best',
@@ -109,32 +109,33 @@ class AudioPipe:
                 }],
                 'embedthumbnail': load_config('thumbnail'),
                 'quiet': not load_config('verbose'),
-                'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else []
+                'socket_timeout': 40,
+                'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else [],
             }
 
             def youtube():
-                if self.is_youtube(url):
-                    os.system('cls||clear')
-
-                    # Downloading a song from youtube
-                    with yt_dlp.YoutubeDL(options) as yt:
-                        yt.download([url])
-
-                    os.system('cls||clear')
-                else:
-                    os.system('cls||clear')
-
-                    with yt_dlp.YoutubeDL(options) as yt:
-                        result = yt.extract_info(query, download=False)
-                        if 'entries' in result:
-                            video = result['entries'][0]
-                        else:
-                            video = result
-                return f"https://www.youtube.com/watch?v={video['id']}"
+                nonlocal proxy
+                if load_config('proxy') and proxies:
+                    options['proxy'] = proxy
 
                 os.system('cls||clear')
+
+                time_start = time.perf_counter()
+
+                # Downloading a song from youtube
+                with YoutubeDL(options) as yt:
+                    p = Process(target=yt.download([url]))
+                    p.start()
+                    p.join()
+
+                time_elapsed = (time.perf_counter() - time_start)
+
+                os.system('cls||clear')
+                print("Finished downloading in%5.1fs" % time_elapsed)
                 
             def spotify():
+                nonlocal proxy
+
                 playlist_id = self.get_playlist_id(url)
                 if not playlist_id:
                     print("ERROR: Invalid Spotify playlist ID.")
@@ -148,25 +149,39 @@ class AudioPipe:
                     artist_name = ', '.join([artist['name'] for artist in track['artists']])
                     query = f"{track_name} {artist_name}"
 
+                    if proxy and load_config('proxy'):
+                        options['proxy'] = proxy
+
                     os.system('cls||clear')
                     print(f"Searching YouTube for {track_name} by {artist_name}...")
+                    
+                    time_start = time.perf_counter()
 
                     # Use song search algorithm
-                    with yt_dlp.YoutubeDL(options) as yt:
+                    with YoutubeDL(options) as yt:
                         try:
-                            info = yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
-                            print(f"Downloaded: {info['title']}")
+                            p = Process(target=yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0])
+                            p.start()
+                            p.join()
                         except Exception as e:
                             print(f"ERROR: Could not download {track_name}: {e}")
+                    time_elapsed = (time.perf_counter() - time_start)
                     os.system('cls||clear')
-                    
-            if self.is_spotify(url) and load_config("spotify"):
+
+                    print("Finished downloading in%5.1fs" % time_elapsed)
+
+            if load_config('proxy'):
+                proxy = get_random_proxy()
+                print(f"Currently using proxy: {proxy}")
+
+            if load_config("spotify") and self.is_spotify(url):
                 spotify()
-            elif self.is_youtube(url):
+            else:
                 youtube()
 
 # Handling user's config
 def load_config(key: str):
+    import yaml
 
     # Incase of a missing config file
     default_config = {
@@ -179,7 +194,10 @@ def load_config(key: str):
         'verbose': True,
         'spotify': False,
         'id': '',
-        'secret': ''
+        'secret': '',
+        'proxy': False,
+        'proxies': [],
+        'multiprocessing': True
     }
     config = {}
 
@@ -197,9 +215,8 @@ def load_config(key: str):
         with open('config.yaml', 'w') as f:
             yaml.dump(default_config, f)
         config = default_config
-    
-    return config.get(key, default_config.get(key))
 
+    return config.get(key, default_config.get(key))
 
 def main():
     main = AudioPipe(load_config('path'))

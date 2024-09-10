@@ -6,10 +6,18 @@ verbose: true # colloquially detailed console output
 # spotify:
 spotify: true # enable to download spotify playlists/songs
 id: "insert your client id"
-secret: "as well as secret"
+secret: "and client secret"
 
 # file:
 format: 'mp3' # we support: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
-thumbnail: true # thumbnail of the song
-file_name: '%(title)s' # the default song name
+thumbnail: false # download song with thumbnail
+file_name: '%(title)s' # song naming convention
 quality: 128 # sound quality of the song
+
+# network:
+proxy: false # you can use your own proxies
+proxies:
+  - '' # here you can put your proxies
+
+# others:
+multiprocessing: true # use of multiple cpu cores
