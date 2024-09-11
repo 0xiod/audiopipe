@@ -124,9 +124,12 @@ class AudioPipe:
 
                 # Downloading a song from youtube
                 with YoutubeDL(options) as yt:
-                    p = Process(target=yt.download([url]))
-                    p.start()
-                    p.join()
+                    if load_config("multiprocessing"):
+                        p = Process(target=yt.download([url]))
+                        p.start()
+                        p.join()
+                    else:
+                        yt.download([url])
 
                 time_elapsed = (time.perf_counter() - time_start)
 
@@ -160,9 +163,12 @@ class AudioPipe:
                     # Use song search algorithm
                     with YoutubeDL(options) as yt:
                         try:
-                            p = Process(target=yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0])
-                            p.start()
-                            p.join()
+                            if load_config("multiprocessing"):
+                                p = Process(target=yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0])
+                                p.start()
+                                p.join()
+                            else:
+                                yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
                         except Exception as e:
                             print(f"ERROR: Could not download {track_name}: {e}")
                     time_elapsed = (time.perf_counter() - time_start)
