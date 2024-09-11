@@ -66,10 +66,10 @@ class AudioPipe:
                 try:
                     return self.spotify.playlist(playlist_id).get('name', 'Unknown Playlist')
                 except SpotifyException as e:
-                    print(ERROR, f"Failed to fetch playlist information from Spotify: {e}")
+                    print("ERROR", f"Failed to fetch playlist information from Spotify: {e}")
                     return 'Unknown Playlist'
             else:
-                print(ERROR, "Failed to extract playlist ID from Spotify URL.")
+                print("ERROR", "Failed to extract playlist ID from Spotify URL.")
                 return 'Unknown Playlist'
         else: # case for youtube
             options = {'quiet': not load_config("verbose"), 'extract_flat': True}
@@ -106,6 +106,9 @@ class AudioPipe:
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': load_config('format'),
                     'preferredquality': str(load_config('quality')),
+                },
+                {
+                    'key': 'FFmpegMetadata'
                 }],
                 'embedthumbnail': load_config('thumbnail'),
                 'quiet': not load_config('verbose'),

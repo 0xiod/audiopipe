@@ -5,12 +5,12 @@ verbose: true # colloquially detailed console output
 
 # spotify:
 spotify: true # enable to download spotify playlists/songs
-id: "insert your client id"
-secret: "and client secret"
+id: "f3eff736ad844534aaf36589064ef976"
+secret: "755b857a906b497e8649e9249897ea76"
 
 # file:
 format: 'mp3' # we support: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
-thumbnail: false # download song with thumbnail
+thumbnail: true # download song with thumbnail
 file_name: '%(title)s' # song naming convention
 quality: 128 # sound quality of the song
 
