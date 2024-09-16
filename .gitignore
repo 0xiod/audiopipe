@@ -2,3 +2,4 @@ downloads/
 .cache
 api/
 .venv/
+.token

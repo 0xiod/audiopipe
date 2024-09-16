@@ -1,12 +1,38 @@
-from multiprocessing import Process
 from spotipy import SpotifyOAuth
 from spotipy import SpotifyException, SpotifyOauthError
+from concurrent.futures import ThreadPoolExecutor
+from colorama import Fore, Style, init
 from spotipy import Spotify
 from yt_dlp import YoutubeDL
 from re import search
 
 import time
+import logging
 import os
+
+init(autoreset=True)
+
+class Logger(logging.Formatter):
+    CODES = {
+        logging.DEBUG: Fore.CYAN + "[DEBUG] " + Style.RESET_ALL + "%(message)s",
+        logging.INFO: Fore.GREEN + "[INFO] " + Style.RESET_ALL + "%(message)s",
+        logging.WARNING: Fore.YELLOW + "[WARNING] " + Style.RESET_ALL + "%(message)s",
+        logging.ERROR: Fore.RED + "[ERROR] " + Style.RESET_ALL + "%(message)s",
+        logging.CRITICAL: Fore.RED + Style.BRIGHT + "[CRITICAL] " + Style.RESET_ALL + "%(message)s"
+    }
+
+    def format(self, record):
+        log_fmt = self.CODES.get(record.levelno, self.CODES[logging.INFO])
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(Logger())
+
+logger.addHandler(console_handler)
 
 class AudioPipe:
     def __init__(self, path: str) -> None:
@@ -18,20 +44,23 @@ class AudioPipe:
     def check_queue(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-
+ 
         try:
             with open(load_config('queue'), 'r') as f:
                 self.urls = [line.strip() for line in f.readlines()]
             
-            print(
+            logger.info(
                 f"{len(self.urls)} item is available in queue." if len(self.urls) > 1 
                 else f"{len(self.urls)} items are available in queue.")
 
             if (len(self.urls) <= 0):
-                self.urls = [input("Insert song or playlist URL: ")]
+                try:
+                    self.urls = [input("Insert song or playlist URL: ")]
+                except KeyboardInterrupt:
+                    print(" (interrupted)")
 
         except FileNotFoundError:
-            print('ERROR: Queue was not found, creating a new file.')
+            logger.error('Queue file was not found, creating a new file.')
 
             with open(load_config('queue'), 'w') as f:
                 f.write("Maybe don't delete the essential files next time ;)")
@@ -54,8 +83,9 @@ class AudioPipe:
                     redirect_uri=redirect_uri, 
                     scope=scope))
 
+                logger.info(f"Spotify authentication was successful for {client_id}")
             except SpotifyOauthError as e:
-                print(f"ERROR: Spotify authentication failed: {e}")
+                logger.error(f"Spotify authentication has failed: {e}")
                 exit()
         return None
 
@@ -66,10 +96,10 @@ class AudioPipe:
                 try:
                     return self.spotify.playlist(playlist_id).get('name', 'Unknown Playlist')
                 except SpotifyException as e:
-                    print("ERROR", f"Failed to fetch playlist information from Spotify: {e}")
+                    logger.error(f"Failed to fetch playlist information from Spotify: {e}")
                     return 'Unknown Playlist'
             else:
-                print("ERROR", "Failed to extract playlist ID from Spotify URL.")
+                logger.error("Failed to extract playlist ID from Spotify URL.")
                 return 'Unknown Playlist'
         else: # case for youtube
             options = {'quiet': not load_config("verbose"), 'extract_flat': True}
@@ -86,6 +116,10 @@ class AudioPipe:
         match = search(pattern, url)
         return match.group(2) if match else None
 
+    def bulk_download(self, method):
+        with ThreadPoolExecutor(max_workers=int(load_config("threads"))) as executor:
+            executor.map(method)
+
     def download(self) -> None:
         for url in self.urls:
             playlist_name: str = self.get_playlist_name(url)
@@ -100,20 +134,25 @@ class AudioPipe:
                 return choice(proxies) if proxies else None
 
             options = {
-                'format': 'bestaudio/best',
+                'format': load_config('format'),
                 'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
-                    'preferredcodec': load_config('format'),
-                    'preferredquality': str(load_config('quality')),
+                    'preferredcodec': load_config('codec'),
+                    'preferredquality': str(load_config('bitrate')),
                 },
                 {
                     'key': 'FFmpegMetadata'
                 }],
                 'embedthumbnail': load_config('thumbnail'),
-                'quiet': not load_config('verbose'),
                 'socket_timeout': 40,
-                'progress_hooks': [lambda d: print(d['status'])] if load_config('verbose') else [],
+                'caching': load_config('caching'),
+                'http_chunk_size': int(load_config('http_chunk_size')) * int(load_config('http_chunk_size')),
+                'external_downloader': load_config('downloader'),
+                'external_downloader_args': load_config('downloader_args'),
+                'log_level': 'WARNING',
+                'logger': logger,
+                'logtostderr': False
             }
 
             def youtube():
@@ -122,29 +161,25 @@ class AudioPipe:
                     options['proxy'] = proxy
 
                 os.system('cls||clear')
+                logger.info(f"Starting to download: {url}")
 
                 time_start = time.perf_counter()
 
                 # Downloading a song from youtube
                 with YoutubeDL(options) as yt:
-                    if load_config("multiprocessing"):
-                        p = Process(target=yt.download([url]))
-                        p.start()
-                        p.join()
-                    else:
-                        yt.download([url])
+                    yt.download([url])
 
                 time_elapsed = (time.perf_counter() - time_start)
 
                 os.system('cls||clear')
-                print("Finished downloading in%5.1fs" % time_elapsed)
+                logger.info("Finished downloading in %.1fs", time_elapsed)
                 
             def spotify():
                 nonlocal proxy
 
                 playlist_id = self.get_playlist_id(url)
                 if not playlist_id:
-                    print("ERROR: Invalid Spotify playlist ID.")
+                    logger.error("Invalid Spotify playlist ID!")
                     return
                 
                 playlist_tracks = self.spotify.playlist_tracks(playlist_id)
@@ -159,34 +194,32 @@ class AudioPipe:
                         options['proxy'] = proxy
 
                     os.system('cls||clear')
-                    print(f"Searching YouTube for {track_name} by {artist_name}...")
+                    logger.info(f"Searching YouTube for {track_name} by {artist_name}...")
                     
                     time_start = time.perf_counter()
 
                     # Use song search algorithm
                     with YoutubeDL(options) as yt:
                         try:
-                            if load_config("multiprocessing"):
-                                p = Process(target=yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0])
-                                p.start()
-                                p.join()
-                            else:
-                                yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
+                            yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
                         except Exception as e:
-                            print(f"ERROR: Could not download {track_name}: {e}")
+                            logger.error(f"Could not download {track_name}: {e}")
                     time_elapsed = (time.perf_counter() - time_start)
+                    
                     os.system('cls||clear')
-
-                    print("Finished downloading in%5.1fs" % time_elapsed)
+                    logger.info("Finished downloading in %.1fs", time_elapsed)
 
             if load_config('proxy'):
                 proxy = get_random_proxy()
-                print(f"Currently using proxy: {proxy}")
+                logger.info(f"You are currently using proxy: {proxy}")
 
-            if load_config("spotify") and self.is_spotify(url):
-                spotify()
+            if load_config('pools'):
+                self.bulk_download(spotify() if load_config("spotify") and self.is_spotify(url) else youtube())
             else:
-                youtube()
+                if load_config("spotify") and self.is_spotify(url): 
+                    spotify() 
+                else: 
+                    youtube()
 
 # Handling user's config
 def load_config(key: str):
@@ -194,19 +227,29 @@ def load_config(key: str):
 
     # Incase of a missing config file
     default_config = {
+        # general
         'path': './downloads',
         'queue': 'queue.txt',
-        'format': 'mp3',
-        'thumbnail': True,
-        'file_name': '%(title)s',
-        'quality': 192,
-        'verbose': True,
+        # spotify
         'spotify': False,
         'id': '',
         'secret': '',
+        # file
+        'format': 'bestaudio/best',
+        'codec': 'mp3',
+        'thumbnail': True,
+        'file_name': '%(title)s',
+        'bitrate': 256,
+        # networking
         'proxy': False,
         'proxies': [],
-        'multiprocessing': True
+        # performance
+        'pools': True,
+        'threads': 4,
+        'downloader': 'aria2c',
+        'downloader_args': ['-x', '16', '-k', '1M'],
+        'http_chunk_size:': 1024,
+        'caching': True
     }
     config = {}
 
@@ -215,15 +258,16 @@ def load_config(key: str):
             with open('config.yaml', 'r') as f:
                 config = yaml.safe_load(f) # Reading config
         except Exception as e:
-            print(f"ERROR: could not read config file: {e}")
-            print("Loading default settings.")
+            logger.error(f"Could not read the config file: {e}")
             config = default_config
+            logger.info("Default config has been loaded!")
     else:
-        print("ERROR: config file was not found")
-        print("Creating a new")
+        logger.error("Config file not found!")
+        logger.info("Creating new config file with a default config.")
         with open('config.yaml', 'w') as f:
             yaml.dump(default_config, f)
         config = default_config
+        logger.info("Default config has been loaded!")
 
     return config.get(key, default_config.get(key))
 
