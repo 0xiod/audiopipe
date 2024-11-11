@@ -31,6 +31,6 @@ Copy Client ID and Client secret
 
 ![3](/assets/3.jpg?raw=true)
 
-Replace these two in config.yaml, and you're ready to go!
+Replace these two in CONFIG variable, and you're good to go!
 
 Simple as that!

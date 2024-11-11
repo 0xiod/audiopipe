@@ -1,38 +1,42 @@
 from spotipy import SpotifyOAuth
 from spotipy import SpotifyException, SpotifyOauthError
 from concurrent.futures import ThreadPoolExecutor
-from colorama import Fore, Style, init
 from spotipy import Spotify
 from yt_dlp import YoutubeDL
 from re import search
-
 import time
-import logging
 import os
+import sys
 
-init(autoreset=True)
+CONFIG = {
+    # general:
+    "path": "/mnt/data/music/.new/", # folder where your songs will belong
+    "queue": "queue.txt", # you can use queue to download more than 1 song
 
-class Logger(logging.Formatter):
-    CODES = {
-        logging.DEBUG: Fore.CYAN + "[DEBUG] " + Style.RESET_ALL + "%(message)s",
-        logging.INFO: Fore.GREEN + "[INFO] " + Style.RESET_ALL + "%(message)s",
-        logging.WARNING: Fore.YELLOW + "[WARNING] " + Style.RESET_ALL + "%(message)s",
-        logging.ERROR: Fore.RED + "[ERROR] " + Style.RESET_ALL + "%(message)s",
-        logging.CRITICAL: Fore.RED + Style.BRIGHT + "[CRITICAL] " + Style.RESET_ALL + "%(message)s"
-    }
+    # spotify:
+    "spotify": False, # enable to download spotify playlists/songs
+    "id": "",
+    "secret": "",
 
-    def format(self, record):
-        log_fmt = self.CODES.get(record.levelno, self.CODES[logging.INFO])
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
+    # file:
+    "format": "bestaudio/best", # overall quality of the song
+    "codec": "mp3", # we support: mp3, mkv/mka, ogg/opus/flac, m4a/mp4/m4v/mov
+    "thumbnail": True, # download song with thumbnail
+    "file_name": "%(title)s", # song naming convention
+    "bitrate": 320, # sound quality of the song
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+    # networking:
+    "proxy": False, # you can use your own proxies
+    "proxies": {''}, # here you can put your proxies
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(Logger())
-
-logger.addHandler(console_handler)
+    # performance:
+    "pools": True, # concurrent parallel downloads (ThreadPoolExecutor)
+    "threads": 4, # maximum amount of threads used by ThreadPoolExecutor
+    "downloader": 'aria2c', # change this only if you know what you're doing
+    "downloader_args": ['-x', '16', '-k', '1M'], # -x = connections, -k = chunks in MB
+    "http_chunk_size": 1024, # fragmentation of song into chunks (Kb)
+    "caching": True # speed up of repetitive and avoiding retries
+}
 
 class AudioPipe:
     def __init__(self, path: str) -> None:
@@ -46,10 +50,10 @@ class AudioPipe:
             os.makedirs(self.path)
  
         try:
-            with open(load_config('queue'), 'r') as f:
+            with open(CONFIG.get("queue"), 'r') as f:
                 self.urls = [line.strip() for line in f.readlines()]
             
-            logger.info(
+            print(
                 f"{len(self.urls)} item is available in queue." if len(self.urls) > 1 
                 else f"{len(self.urls)} items are available in queue.")
 
@@ -60,19 +64,18 @@ class AudioPipe:
                     print(" (interrupted)")
 
         except FileNotFoundError:
-            logger.error('Queue file was not found, creating a new file.')
+            print('Queue file was not found, creating a new file.')
 
-            with open(load_config('queue'), 'w') as f:
-                f.write("Maybe don't delete the essential files next time ;)")
+            with open(CONFIG.get("queue"), 'w') as f:
+                f.write("")
             
-            os.system("cls||clear")
-            self.__init__(load_config('path'))
+            self.__init__(CONFIG.get("path"))
 
     def get_spotipy(self):
-        if load_config('spotify'):
+        if CONFIG.get("spotify"):
             try:
-                client_id = load_config('id')
-                client_secret = load_config('secret')
+                client_id = CONFIG.get("id")
+                client_secret = CONFIG.get("secret")
                 redirect_uri = 'http://localhost:8888/callback'
                 scope = 'playlist-read-private'
 
@@ -83,26 +86,26 @@ class AudioPipe:
                     redirect_uri=redirect_uri, 
                     scope=scope))
 
-                logger.info(f"Spotify authentication was successful for {client_id}")
+                print(f"Spotify authentication was successful for {client_id}")
             except SpotifyOauthError as e:
-                logger.error(f"Spotify authentication has failed: {e}")
+                print(f"Spotify authentication has failed: {e}")
                 exit()
         return None
 
     def get_playlist_name(self, url: str):
-        if self.is_spotify(url) and load_config('spotify'):
+        if self.is_spotify(url) and CONFIG.get("spotify"):
             playlist_id = self.get_playlist_id(url)
             if playlist_id and self.spotify:
                 try:
                     return self.spotify.playlist(playlist_id).get('name', 'Unknown Playlist')
                 except SpotifyException as e:
-                    logger.error(f"Failed to fetch playlist information from Spotify: {e}")
+                    print(f"Failed to fetch playlist information from Spotify: {e}")
                     return 'Unknown Playlist'
             else:
-                logger.error("Failed to extract playlist ID from Spotify URL.")
+                print("Failed to extract playlist ID from Spotify URL.")
                 return 'Unknown Playlist'
         else: # case for youtube
-            options = {'quiet': not load_config("verbose"), 'extract_flat': True}
+            options = {'quiet': True, 'extract_flat': True}
             with YoutubeDL(options) as yt:
                 info_dict = yt.extract_info(url, download=False)
                 return info_dict.get('title', 'Unknown Playlist')
@@ -117,7 +120,7 @@ class AudioPipe:
         return match.group(2) if match else None
 
     def bulk_download(self, method):
-        with ThreadPoolExecutor(max_workers=int(load_config("threads"))) as executor:
+        with ThreadPoolExecutor(max_workers=int(CONFIG.get("threads"))) as executor:
             executor.map(method)
 
     def download(self) -> None:
@@ -126,7 +129,7 @@ class AudioPipe:
             playlist = os.path.join(self.path, playlist_name)
             os.makedirs(playlist, exist_ok=True)
 
-            proxies = load_config('proxies')
+            proxies = CONFIG.get("proxies")
             proxy = None
 
             def get_random_proxy():
@@ -134,34 +137,28 @@ class AudioPipe:
                 return choice(proxies) if proxies else None
 
             options = {
-                'format': load_config('format'),
-                'outtmpl': os.path.join(playlist, f"{load_config('file_name')}.%(ext)s"),
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': load_config('codec'),
-                    'preferredquality': str(load_config('bitrate')),
-                },
-                {
-                    'key': 'FFmpegMetadata'
-                }],
-                'embedthumbnail': load_config('thumbnail'),
+                'format': CONFIG.get("format"),
+                'outtmpl': os.path.join(playlist, f"{CONFIG.get("file_name")}.%(ext)s"),
+                'postprocessors': 
+                    [{'key': 'FFmpegExtractAudio',
+                    'preferredcodec': CONFIG.get("codec"),
+                    'preferredquality': str(CONFIG.get("bitrate"))},
+                    {'key': 'FFmpegMetadata'}],
+                'embedthumbnail': True,
                 'socket_timeout': 40,
-                'caching': load_config('caching'),
-                'http_chunk_size': int(load_config('http_chunk_size')) * int(load_config('http_chunk_size')),
-                'external_downloader': load_config('downloader'),
-                'external_downloader_args': load_config('downloader_args'),
-                'log_level': 'WARNING',
-                'logger': logger,
-                'logtostderr': False
+                'caching': CONFIG.get("caching"),
+                'http_chunk_size': int(CONFIG.get("http_chunk_size")) * int(CONFIG.get('http_chunk_size')),
+                'external_downloader': CONFIG.get('downloader'),
+                'external_downloader_args': CONFIG.get('downloader_args'),
             }
 
             def youtube():
                 nonlocal proxy
-                if load_config('proxy') and proxies:
+                if CONFIG.get('proxy') and proxies:
                     options['proxy'] = proxy
 
                 os.system('cls||clear')
-                logger.info(f"Starting to download: {url}")
+                print(f"Starting to download: {url}")
 
                 time_start = time.perf_counter()
 
@@ -172,14 +169,14 @@ class AudioPipe:
                 time_elapsed = (time.perf_counter() - time_start)
 
                 os.system('cls||clear')
-                logger.info("Finished downloading in %.1fs", time_elapsed)
+                print("Finished downloading in %.1fs", time_elapsed)
                 
             def spotify():
                 nonlocal proxy
 
                 playlist_id = self.get_playlist_id(url)
                 if not playlist_id:
-                    logger.error("Invalid Spotify playlist ID!")
+                    print("Invalid Spotify playlist ID!")
                     return
                 
                 playlist_tracks = self.spotify.playlist_tracks(playlist_id)
@@ -190,11 +187,11 @@ class AudioPipe:
                     artist_name = ', '.join([artist['name'] for artist in track['artists']])
                     query = f"{track_name} {artist_name}"
 
-                    if proxy and load_config('proxy'):
+                    if proxy and CONFIG.get('proxy'):
                         options['proxy'] = proxy
 
                     os.system('cls||clear')
-                    logger.info(f"Searching YouTube for {track_name} by {artist_name}...")
+                    print(f"Searching YouTube for {track_name} by {artist_name}...")
                     
                     time_start = time.perf_counter()
 
@@ -203,77 +200,23 @@ class AudioPipe:
                         try:
                             yt.extract_info(f"ytsearch:{query}", download=True)['entries'][0]
                         except Exception as e:
-                            logger.error(f"Could not download {track_name}: {e}")
+                            print(f"Could not download {track_name}: {e}")
                     time_elapsed = (time.perf_counter() - time_start)
                     
                     os.system('cls||clear')
-                    logger.info("Finished downloading in %.1fs", time_elapsed)
+                    print("Finished downloading in %.1fs", time_elapsed)
 
-            if load_config('proxy'):
+            if CONFIG.get('proxy'):
                 proxy = get_random_proxy()
-                logger.info(f"You are currently using proxy: {proxy}")
+                print(f"You are currently using proxy: {proxy}")
 
-            if load_config('pools'):
-                self.bulk_download(spotify() if load_config("spotify") and self.is_spotify(url) else youtube())
+            if CONFIG.get('pools'):
+                self.bulk_download(spotify() if CONFIG.get("spotify") and self.is_spotify(url) else youtube())
             else:
-                if load_config("spotify") and self.is_spotify(url): 
+                if CONFIG.get("spotify") and self.is_spotify(url): 
                     spotify() 
                 else: 
                     youtube()
 
-# Handling user's config
-def load_config(key: str):
-    import yaml
-
-    # Incase of a missing config file
-    default_config = {
-        # general
-        'path': './downloads',
-        'queue': 'queue.txt',
-        # spotify
-        'spotify': False,
-        'id': '',
-        'secret': '',
-        # file
-        'format': 'bestaudio/best',
-        'codec': 'mp3',
-        'thumbnail': True,
-        'file_name': '%(title)s',
-        'bitrate': 256,
-        # networking
-        'proxy': False,
-        'proxies': [],
-        # performance
-        'pools': True,
-        'threads': 4,
-        'downloader': 'aria2c',
-        'downloader_args': ['-x', '16', '-k', '1M'],
-        'http_chunk_size:': 1024,
-        'caching': True
-    }
-    config = {}
-
-    if os.path.exists('config.yaml'): # Config file check
-        try:
-            with open('config.yaml', 'r') as f:
-                config = yaml.safe_load(f) # Reading config
-        except Exception as e:
-            logger.error(f"Could not read the config file: {e}")
-            config = default_config
-            logger.info("Default config has been loaded!")
-    else:
-        logger.error("Config file not found!")
-        logger.info("Creating new config file with a default config.")
-        with open('config.yaml', 'w') as f:
-            yaml.dump(default_config, f)
-        config = default_config
-        logger.info("Default config has been loaded!")
-
-    return config.get(key, default_config.get(key))
-
-def main():
-    main = AudioPipe(load_config('path'))
-    main.download()
-
 if __name__ == "__main__":
-    main()
+    AudioPipe(CONFIG.get("path")).download()
