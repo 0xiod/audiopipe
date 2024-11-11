@@ -21,15 +21,15 @@ You have to be logged in or just log in using your spotify account.
 
 Then click create app (for sure, you have to be in dashboard).
 
-![1](/assets/1.png?raw=true)
+![1](https://i.ibb.co/qx11C9B/1.png)
 
 After creating new app click on it and go in it's settings.
 
-![2](/assets/2.png?raw=true)
+![2](https://i.ibb.co/7n2VcS3/2.png)
 
 Copy Client ID and Client secret
 
-![3](/assets/3.jpg?raw=true)
+![3](https://i.ibb.co/VjVgFSj/image.png)
 
 Replace these two in CONFIG variable, and you're good to go!
 
