@@ -29,7 +29,7 @@ After creating new app click on it and go in it's settings.
 
 Copy Client ID and Client secret
 
-![3](/assets/3.jpg?raw=true)
+![3](https://i.ibb.co/VjVgFSj/image.png)
 
 Replace these two in CONFIG variable, and you're good to go!
 
