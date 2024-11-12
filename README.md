@@ -1,6 +1,6 @@
 
 # AudioPipe
-Command-line audio downloader based on yt-dlp, that does a good job on downloading your favourite songs or playlists. It intergrates YouTube and Spotify, as well as 
+Command-line audio downloader based on yt-dlp, that does a good job on downloading your favourite songs or playlists. It is made in mind of compatibility and intergration between YouTube and Spotify
 
 ## Installation
 
