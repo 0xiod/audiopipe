@@ -169,7 +169,7 @@ class AudioPipe:
                 time_elapsed = (time.perf_counter() - time_start)
 
                 os.system('cls||clear')
-                print("Finished downloading in %.1fs", time_elapsed)
+                print(f"Finished downloading in {round(time_elapsed, 2)}s")
                 
             def spotify():
                 nonlocal proxy
@@ -204,7 +204,7 @@ class AudioPipe:
                     time_elapsed = (time.perf_counter() - time_start)
                     
                     os.system('cls||clear')
-                    print("Finished downloading in %.1fs", time_elapsed)
+                    print(f"Finished downloading in {round(time_elapsed, 2)}s")
 
             if CONFIG.get('proxy'):
                 proxy = get_random_proxy()
