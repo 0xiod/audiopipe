@@ -3,3 +3,4 @@ downloads/
 api/
 .venv/
 .token
+__pycache__/

@@ -1,2 +1,4 @@
-spotipy==2.24.0
-yt_dlp==2024.8.6
+spotipy
+yt_dlp
+py-json
+platformdirs

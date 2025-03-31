@@ -1,0 +1,7 @@
+[project]
+name = "audiopipe"
+version = "1.0"
+description = "music downloading command-line interface"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["spotipy", "yt_dlp", "py-json", "platformdirs"]
