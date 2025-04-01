@@ -25,8 +25,9 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
 
     source .venv/bin/activate
     pip install nuitka
+    pip install -r requirements.txt
 
-    nuitka --standalone --product-version=1.0 --product-name=AudioPipe --static-libpython=yes --onefile --onefile-tempdir main.py
+    nuitka --standalone --product-version=1.0 --product-name=AudioPipe --static-libpython=yes --onefile main.py
     
     mv main.dist/ dist/
     mv main.build/ build/
