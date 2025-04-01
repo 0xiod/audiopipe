@@ -11,26 +11,27 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
 
     ctrl_c () {
         echo "Cleaning up..."
-        rm -rf build/ audiopipe.dist/
-        rm -rf dist/ audiopipe.build/
-        rm -rf onefile/ audiopipe.onefile-build/
+        rm -rf build/ main.dist/
+        rm -rf dist/ main.build/
+        rm -rf onefile/ main.onefile-build/
     }
 
-    rm -rf build/ audiopipe.dist/
-    rm -rf dist/ audiopipe.build/
-    rm -rf onefile/ audiopipe.onefile-build/
-    rm -f audiopipe.bin
-    rm -f .venv/lib/yt_dlp/extractor/lazy_extractors.py
-    rm -f .venv/lib64/yt_dlp/extractor/lazy_extractors.py
+    rm -rf build/ main.dist/
+    rm -rf dist/ main.build/
+    rm -rf onefile/ main.onefile-build/
+    rm -f main.bin
+    rm -rf .venv/lib64/python3.12/site-packages/yt_dlp/extractor/lazy_extractors.py
+    rm -rf .venv/lib/python3.12/site-packages/yt_dlp/extractor/lazy_extractors.py
 
     source .venv/bin/activate
     pip install nuitka
 
-    nuitka --standalone --product-version=1.0 --product-name=AudioPipe --static-libpython=yes --onefile audiopipe.py
+    nuitka --standalone --product-version=1.0 --product-name=AudioPipe --static-libpython=yes --onefile --onefile-tempdir main.py
     
-    mv audiopipe.dist/ dist/
-    mv audiopipe.build/ build/
-    mv audiopipe.onefile-build/ onefile/   
+    mv main.dist/ dist/
+    mv main.build/ build/
+    mv main.onefile-build/ onefile/
+    mv main.bin audiopipe.bin
 else
     echo No
 fi

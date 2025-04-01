@@ -1,6 +1,18 @@
+# program
 downloads/
+queue.txt
+.token
 .cache
 api/
+config.json
+queue.txt
+# development
+.vscode/
 .venv/
-.token
 __pycache__/
+# building
+audiopipe.egg-info/
+dist/
+build/
+onefile/
+audiopipe.bin
