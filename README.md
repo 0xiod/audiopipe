@@ -88,7 +88,7 @@ python3 -m pip install -r requirements.txt
 If you've successfully followed along with the previous steps you can now change directory to the AudioPipe project folder and execute the file named main.py using your system's python:
 
 ```bash
-cd AudioPipe/
+cd audiopipe/
 python main.py
 ```
 

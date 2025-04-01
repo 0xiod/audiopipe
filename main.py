@@ -15,10 +15,6 @@ I have come to a conclusion that's it's best to do it by myself.
 As because of my close friends who found it really useful to use,
 I got even more motivated to work towards it.
 
-If you've found something that's odd, wrong or any bugs, then
-please create a new issue on Gitlab: https://gitlab.com/iodomi/AudioPipe/-/issues
-or just contact me thru email: happyrottenfruit@proton.me
-
 This project is licensed under the GNU General Public License v3.0 or later.
 """
 
@@ -105,11 +101,13 @@ class AudioPipe:
         else:
             self.command = None
 
-        if hasattr(self.command, "config") and self.command.config != None:
+        # Check custom config is passed as a cli argument and it's type is not none.
+        if hasattr(self.command, "config") and type(self.command.config) != None:
             self.config = self.load_config(self.command.config)
             if self.get_value("debug"):
                 print(f"set config={self.command.config}")
             self.using_config = True
+        # Else if config file exists on the system. 
         elif os.path.exists(self.config_path):
             self.config = self.load_config(self.config_path)
             self.using_config = True
@@ -124,6 +122,7 @@ class AudioPipe:
         if not os.path.exists(self.dirs.user_data_dir):
             os.makedirs(self.dirs.user_data_dir)
 
+        # Set path to where downloaded files will be.
         self.path = os.path.join(self.dirs.user_data_dir, self.get_value("path"))
 
         if not os.path.exists(self.path):
@@ -150,12 +149,14 @@ class AudioPipe:
         if not self.get_value("queue"):
             self.urls = self.get_user_input()
         elif self.is_queue_empty(self.queue_path):
+            # Inform the user that queue file is empty.
             print("You're using queue but it's seems empty...")
             sys.exit()
         else:
             self.urls = self.check_queue(self.queue_path)
         
         if self.get_value("caching"):
+            # Make directory where cache file will be saved.
             if not os.path.exists(self.dirs.user_cache_dir):
                 os.makedirs(self.dirs.user_cache_dir)
 
@@ -165,12 +166,16 @@ class AudioPipe:
         a custom config provided by a command or a command.
         """
 
+        # In the first place we check if command has attribute and it's valid.
         if hasattr(self.command, key) and getattr(self.command, key) != None:
             return getattr(self.command, key)
+        # Check if user is using config file.
         if self.using_config:
             return self.config.get(key)
+        # Try to get attribute from self (f.e. self.search)
         elif hasattr(self, key):
             return getattr(self, key)
+        # If everything above fails load from default config.
         else:
             return self.DEFAULT_CONFIG.get(key)
 
@@ -184,11 +189,11 @@ class AudioPipe:
                 return json.load(f)
 
         except FileNotFoundError:
-            print(f"Could not find {config_file}, to fix please rerun with flag genconfig...")
+            print(f"Could not find {config_file}, to fix please rerun with -g flag...")
             return None
 
-        except json.JSONDecodeError as err:
-            raise err
+        # except json.JSONDecodeError as err:
+        #     raise err
         
         except Exception as err:
             raise err
@@ -382,11 +387,13 @@ class AudioPipe:
         if self.get_value("silent"):
             options['logger'] = Logger()
 
+        # Provide cache directory if caching is on.
         if self.get_value("caching"):
             options['cache_dir'] = os.path.join(self.dirs.user_cache_dir, '.cache')
         else:
             options['cache_dir'] = None
 
+        
         if self.proxy_list:
             proxy = self.get_random_proxy(self.proxy_list)
         else:
