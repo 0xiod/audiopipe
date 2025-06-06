@@ -1,11 +1,10 @@
-
 # AudioPipe
 A python command-line interface audio downloader utilizing `yt-dlp`. It is fast, lightweight, minimal,
 functional and easy to use. It was created with portability, compability and intergration between services like **YouTube** and **Spotify** in mind.
 
 ## Installation process
 
-### Automatic (recommended)
+<!-- ### Automatic (recommended) -->
 
 <!-- #### Install using pip
 Make sure you've installed `pip` on your system. 
@@ -26,13 +25,13 @@ After making sure you can just install it by pasting this command to your termin
 pip install audiopipe
 ``` -->
 
-#### Install and execute binary
+<!-- #### Install and execute binary
 Simply download and run binary file (note if you use windows you might rename the binary to .exe):
 
 File|Description|Operating System
 :---|:---|:---
 [audiopipe.bin](https://gitlab.com/iodomi/AudioPipe/releases/latest/download/audiopipe.bin)|Platform independent binary.|**Any**
-
+-->
 
 ### Manual
 
