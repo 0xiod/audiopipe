@@ -366,7 +366,7 @@ class AudioPipe:
         # Options for yt_dlp to run with.
         options = {
             'format': str(self.get_value("format")),
-            'postprocessorsoptions': [
+            'postprocessors': [
                 {
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': str(self.get_value("codec")),
