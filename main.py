@@ -102,7 +102,7 @@ class AudioPipe:
             self.command = None
 
         # Check custom config is passed as a cli argument and it's type is not none.
-        if hasattr(self.command, "config") and type(self.command.config) != None:
+        if hasattr(self.command, "config") and self.command.config != None:
             self.config = self.load_config(self.command.config)
             if self.get_value("debug"):
                 print(f"set config={self.command.config}")
