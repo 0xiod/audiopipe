@@ -122,9 +122,9 @@ This will cover getting the Spotify intergration working alongside with your Spo
 ## Backstory
 I've created this program as I didn't like other audio downloaders
 out there and wanted one that's more snappy and small.
-I have come to a conclusion that's it's best to do it by myself.
-As because of my close friends who found it really useful to use,
-I got even more motivated to work towards it.
+I have come to a conclusion that it's best to do it by myself.
+And because of my close friends who found it really useful,
+I got even more motivated to work on it.
 
 ## Licensing
 This project is licensed under the GNU General Public License v3.0 or later.
