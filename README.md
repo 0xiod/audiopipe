@@ -126,5 +126,10 @@ I have come to a conclusion that it's best to do it by myself.
 And because of my close friends who found it really useful,
 I got even more motivated to work on it.
 
+## TO:DO
+- Add on PyPI
+- Fix setup.sh script
+- Build binary
+
 ## Licensing
 This project is licensed under the GNU General Public License v3.0 or later.
