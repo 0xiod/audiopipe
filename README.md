@@ -59,7 +59,7 @@ https://git-scm.com/downloads/win
 
 and execute this command:
 ```bash
-git clone https://gitlab.com/iodomi/AudioPipe.git
+git clone https://codeberg.org/iodomi/audiopipe.git
 ```
 
 **2. Installing dependencies (skipable)**
