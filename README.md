@@ -82,6 +82,14 @@ pip install -r requirements.txt
 python3 -m pip install -r requirements.txt
 ```
 
+**NOTICE:**
+You will also need FFmpeg on your system and it doesn't matter if you use Windows, Linux or Windows
+just go here: https://ffmpeg.org/download.html and install. Otherwise yt-dlp will complain:
+```
+ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+```
+while trying to download stuff.
+
 **3. Run**
 
 If you've successfully followed along with the previous steps you can now change directory to the AudioPipe project folder and execute the file named main.py using your system's python:
