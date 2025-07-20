@@ -35,7 +35,8 @@ File|Description|Operating System
 
 ### Manual
 
-**TL;DR**
+#### TL;DR (Linux)
+
 Install deps:
 ```bash
 apt-get install ffmpeg git
@@ -55,6 +56,8 @@ Run:
 ```bash
 python3 src/main.py
 ```
+
+#### Full guide
 
 **1. Cloning the repository**
 
