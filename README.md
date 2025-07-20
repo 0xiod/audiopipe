@@ -35,6 +35,27 @@ File|Description|Operating System
 
 ### Manual
 
+**TL;DR**
+Install deps:
+```bash
+apt-get install ffmpeg git
+```
+Install AudioPipe:
+```bash
+git clone https://codeberg.org/iodomi/audiopipe.git
+```
+Install pip deps:
+```bash
+cd audiopipe/
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+Run:
+```bash
+python3 src/main.py
+```
+
 **1. Cloning the repository**
 
 To do the following you need to have installed `git` on your system:
@@ -70,6 +91,7 @@ The commands will be diffrent depending on operating system you're using. Here I
 
 **Linux/macOS:**
 ```bash
+cd audiopipe/
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -82,19 +104,21 @@ python3 -m pip install -r requirements.txt
 
 **FFmpeg Installation:**
 
-You will also need FFmpeg on your system and it doesn't matter if you use Windows, Linux or Windows
-just go here: https://ffmpeg.org/download.html and install. Otherwise yt-dlp will complain:
-```
+You will also need FFmpeg on your system and it doesn't matter if you use Windows, Linux or macOS
+just go here: https://ffmpeg.org/download.html and follow along. Otherwise yt-dlp will complain:
+```python
 ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
 ```
-while trying to download stuff. You can also install it using package manager of course.
+while trying to download stuff. You can also install it using package manager of course:
+```bash
+apt-get install ffmpeg
+```
 
 **3. Run**
 
 If you've successfully followed along with the previous steps you can now change directory to the AudioPipe project folder and execute the file named main.py using your system's python:
 
 ```bash
-cd audiopipe/
 python3 src/main.py
 ```
 
