@@ -88,13 +88,13 @@ If you've successfully followed along with the previous steps you can now change
 
 ```bash
 cd audiopipe/
-python main.py
+python src/main.py
 ```
 
 Alternatively you may like to run AudioPipe with a python package and dependency manager like [`Poetry`](https://python-poetry.org/). **It is worth noting that you should skip the step 2, while using a manager.** It's because most managers install dependencies automatically. Here's an example of running this program with help of [`uv`](https://docs.astral.sh/uv/) package manager:
 
 ```bash
-uv run main.py
+uv run src/main.py
 ```
 
 Of course to make it work you have to be in the project directory as well as before.
@@ -127,8 +127,7 @@ And because of my close friends who found it really useful,
 I got even more motivated to work on it.
 
 ## TO:DO
-- Add on PyPI
-- Fix setup.sh script
+- Add on PyPI (in progress)
 - Build binary
 
 ## Licensing
