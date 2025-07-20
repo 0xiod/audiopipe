@@ -88,7 +88,7 @@ If you've successfully followed along with the previous steps you can now change
 
 ```bash
 cd audiopipe/
-python src/main.py
+python3 src/main.py
 ```
 
 Alternatively you may like to run AudioPipe with a python package and dependency manager like [`Poetry`](https://python-poetry.org/). **It is worth noting that you should skip the step 2, while using a manager.** It's because most managers install dependencies automatically. Here's an example of running this program with help of [`uv`](https://docs.astral.sh/uv/) package manager:
