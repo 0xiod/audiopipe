@@ -80,7 +80,8 @@ pip install -r requirements.txt
 python3 -m pip install -r requirements.txt
 ```
 
-**FFmpeg Installation**
+**FFmpeg Installation:**
+
 You will also need FFmpeg on your system and it doesn't matter if you use Windows, Linux or Windows
 just go here: https://ffmpeg.org/download.html and install. Otherwise yt-dlp will complain:
 ```
