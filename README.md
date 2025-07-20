@@ -62,11 +62,9 @@ and execute this command:
 git clone https://codeberg.org/iodomi/audiopipe.git
 ```
 
-**2. Installing dependencies (skipable)**
+**2. Installing dependencies**
 
-**Note:** Skip this step if you're using python package manager different than `pip`. If that's not the case follow along.
-
-To use AudioPipe you will have to install a few python dependencies in order for it to work.
+To use AudioPipe you will have to install a few python dependencies and FFmpeg in order for it to work.
 
 The commands will be diffrent depending on operating system you're using. Here I've prepared some examples of installing those dependencies on diffrent operating systems (If your OS is not there just Google it by yourself):
 
@@ -82,13 +80,13 @@ pip install -r requirements.txt
 python3 -m pip install -r requirements.txt
 ```
 
-**NOTICE:**
+**FFmpeg Installation**
 You will also need FFmpeg on your system and it doesn't matter if you use Windows, Linux or Windows
 just go here: https://ffmpeg.org/download.html and install. Otherwise yt-dlp will complain:
 ```
 ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
 ```
-while trying to download stuff.
+while trying to download stuff. You can also install it using package manager of course.
 
 **3. Run**
 
